@@ -1,0 +1,83 @@
+{
+  description = "Random user profile generator with clipboard support";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  };
+
+  outputs = { self, nixpkgs }:
+    let
+      system = "x86_64-linux";
+      pkgs = import nixpkgs { inherit system; };
+      lib = pkgs.lib;
+
+      # Base Rust package
+      rustPackage = pkgs.rustPlatform.buildRustPackage {
+        pname = "user_generator";
+        version = "0.1.0";
+        src = lib.cleanSource ./.;
+        cargoHash = lib.fakeHash;
+      };
+
+      # Helper to create a profile wrapper that sets env vars
+      buildProfile = {
+        name ? "user_generator",
+        domainAppend ? "",
+        fields ? "email,password,first,last",
+        passwordMinLength ? "8",
+        passwordRequireUpper ? false,
+        passwordRequireSpecial ? false,
+        passwordRequireDigit ? false,
+      }:
+        let
+          inherit (pkgs) writeShellApplication;
+        in
+        writeShellApplication {
+          inherit name;
+          runtimeInputs = [ rustPackage pkgs.wl-clipboard ];
+          text = ''
+            export FIELDS="${fields}"
+            export PASSWORD_MIN_LENGTH="${toString passwordMinLength}"
+            export PASSWORD_REQUIRE_UPPER="${if passwordRequireUpper then "true" else "false"}"
+            export PASSWORD_REQUIRE_SPECIAL="${if passwordRequireSpecial then "true" else "false"}"
+            export PASSWORD_REQUIRE_DIGIT="${if passwordRequireDigit then "true" else "false"}"
+            exec user_generator ${if domainAppend != "" then "-d ${domainAppend}" else ""} "$@"
+          '';
+        };
+
+    in {
+      packages.${system} = {
+        # Default: just the binary, no profile restrictions
+        default = buildProfile {
+          name = "user_generator";
+        };
+
+        # Hugging Face profile: stricter password requirements
+        huggingface = buildProfile {
+          name = "user_generator";
+          domainAppend = "HF";
+          fields = "email,password,first,last";
+          passwordMinLength = 12;
+          passwordRequireUpper = true;
+          passwordRequireSpecial = true;
+          passwordRequireDigit = true;
+        };
+
+        # Minimal profile: just email and first name
+        minimal = buildProfile {
+          name = "user_generator";
+          fields = "email,first";
+        };
+      };
+
+      devShells.${system}.default = pkgs.mkShell {
+        packages = with pkgs; [
+          rustc
+          cargo
+          clippy
+          rustfmt
+          rust-analyzer
+        ];
+      };
+    };
+}
