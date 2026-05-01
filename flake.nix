@@ -54,7 +54,7 @@
         # Hugging Face profile: stricter password requirements
         huggingface = buildProfile {
           name = "user_generator";
-          fields = "email,password,first,last";
+          fields = "email,password,username,fullname";
           passwordMinLength = 12;
           passwordRequireUpper = true;
           passwordRequireSpecial = true;

@@ -25,6 +25,7 @@ struct Name {
 
 #[derive(serde::Deserialize)]
 struct Login {
+    username: String,
     password: String,
 }
 
@@ -36,6 +37,8 @@ enum ClipboardField {
     Password,
     First,
     Last,
+    FullName,
+    Username,
 }
 
 impl ClipboardField {
@@ -45,6 +48,8 @@ impl ClipboardField {
             "password" => Some(Self::Password),
             "first" => Some(Self::First),
             "last" => Some(Self::Last),
+            "fullname" => Some(Self::FullName),
+            "username" => Some(Self::Username),
             _ => None,
         }
     }
@@ -55,6 +60,8 @@ impl ClipboardField {
             Self::Password => "Password",
             Self::First => "First Name",
             Self::Last => "Last Name",
+            Self::FullName => "Full Name",
+            Self::Username => "Username",
         }
     }
 }
@@ -291,6 +298,8 @@ fn main() {
                 ClipboardField::Password => password.clone(),
                 ClipboardField::First => user.name.first.clone(),
                 ClipboardField::Last => user.name.last.clone(),
+                ClipboardField::FullName => format!("{} {}", user.name.first, user.name.last),
+                ClipboardField::Username => user.login.username.clone(),
             };
 
             println!("  Copying {}...", field.label());
