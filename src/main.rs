@@ -324,14 +324,14 @@ fn main() {
         }
 
         println!("\nAll fields copied to clipboard!");
-        print!("Generate another user? (y/n): ");
+        println!("Generate another user? (Y/n): ");
         let mut response = String::new();
         io::stdin()
             .read_line(&mut response)
             .expect("Failed to read input");
 
-        if response.trim().to_lowercase() != "y" {
-            println!("Goodbye!");
+        if response.trim().to_lowercase() == "n" {
+            println!("Exiting...");
             break;
         }
     }
