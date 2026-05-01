@@ -1,20 +1,7 @@
 use arboard::Clipboard;
-use clap::Parser;
 use rand::thread_rng;
 use rand::Rng;
 use std::io;
-
-// --- CLI Arguments ---
-
-#[derive(Parser)]
-#[command(
-    name = "user_generator",
-    about = "Generate random user profiles and copy fields to clipboard"
-)]
-struct Args {
-    #[arg(short = 'd', long, default_value = "")]
-    domain_append: String,
-}
 
 // --- API Response Structures ---
 
@@ -124,16 +111,15 @@ impl Config {
 
 // --- Email Modification ---
 
-fn modify_email(email: &str, append: &str) -> String {
-    if append.is_empty() {
-        return email.to_string();
-    }
-
+fn modify_email(email: &str, rng: &mut impl Rng) -> String {
     if let Some((local, domain)) = email.split_once('@') {
         if let Some(dot_pos) = domain.rfind('.') {
             let domain_name = &domain[..dot_pos];
             let tld = &domain[dot_pos..];
-            return format!("{}@{}{}{}", local, domain_name, append, tld);
+            let hash: String = (0..4)
+                .map(|_| format!("{:x}", rng.gen_range(0..=15)))
+                .collect();
+            return format!("{}@{}{}{}", local, domain_name, hash, tld);
         }
     }
 
@@ -253,11 +239,10 @@ fn display_profile(user: &User, email: &str, password: &str) {
 // --- Main ---
 
 fn main() {
-    let args = Args::parse();
     let config = Config::from_env();
+    let mut rng = thread_rng();
 
     println!("User Profile Generator");
-    println!("Domain append: '{}'", args.domain_append);
     println!(
         "Fields: {:?}",
         config.fields.iter().map(|f| f.label()).collect::<Vec<_>>()
@@ -289,7 +274,7 @@ fn main() {
         println!("\nFetching user from randomuser.me...");
         let user = fetch_user();
 
-        let email = modify_email(&user.email, &args.domain_append);
+        let email = modify_email(&user.email, &mut rng);
         let password = adjust_password(&user.login.password, &config);
 
         display_profile(&user, &email, &password);

@@ -19,15 +19,15 @@ After fetching and displaying a user profile, the tool enters a step-by-step cli
 
 This lets you switch to the target application, paste, switch back, then press Enter for the next field -- all without manually selecting text or opening a clipboard manager.
 
-### Email Domain Modification
+### Email Hash Suffix
 
-Append a string before the TLD of the fetched email address via the `-d` / `--domain-append` flag. Useful for email aliasing.
+Each generated email automatically receives a 4-character lowercase hexadecimal suffix appended before the TLD, ensuring uniqueness across sessions.
 
 ```
-john@gmail.com  +  "-d '+test'"  →  john@gmail+test.com
+john@gmail.com  →  john@gmailf41a.com
 ```
 
-If the email cannot be parsed (no `@` or no `.` in domain), the original email is returned unmodified.
+The hash is generated per-user using `rand` with `gen_range(0..=15)`, producing values like `a3c7`, `f01e`, etc. If the email cannot be parsed (no `@` or no `.` in domain), the original email is returned unmodified.
 
 ### Password Adjustment
 
@@ -73,23 +73,16 @@ nix build      # build the package
 ## Usage
 
 ```bash
-user_generator [OPTIONS]
+user_generator
 ```
 
-### CLI Arguments
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--domain-append` | `-d` | `""` | String appended to the email domain before the TLD |
+The tool has no CLI arguments. All configuration is done via environment variables.
 
 ### Examples
 
 ```bash
 # Basic usage with defaults
 ./target/release/user_generator
-
-# Append "+staging" to email domains
-./target/release/user_generator -d "+staging"
 
 # Only copy email and password (no name fields)
 FIELDS=email,password ./target/release/user_generator
@@ -103,7 +96,7 @@ PASSWORD_MIN_LENGTH=12 \
 PASSWORD_REQUIRE_UPPER=1 \
 PASSWORD_REQUIRE_SPECIAL=1 \
 PASSWORD_REQUIRE_DIGIT=1 \
-./target/release/user_generator -d "+qa"
+./target/release/user_generator
 ```
 
 ## Configuration
@@ -143,10 +136,9 @@ Boolean env vars are `false` only if the value equals `"0"` or `"false"` (case-i
 ## Session Flow
 
 ```
-$ ./target/release/user_generator -d "+test"
+$ ./target/release/user_generator
 
 User Profile Generator
-Domain append: '+test'
 Fields: ["Email", "Password", "First Name", "Last Name"]
 Password restrictions: min_length=8
 
@@ -157,7 +149,7 @@ Fetching user from randomuser.me...
 ╠══════════════════════════════════════════╣
 ║  First Name : Eleanor                    ║
 ║  Last Name  : Nielsen                    ║
-║  Email      : eleanor.nielsen@gmail+test.com ║
+║  Email      : eleanor.nielsen@gmailc4a1.com ║
 ║  Password   : hunter2                    ║
 ╚══════════════════════════════════════════╝
 
@@ -165,7 +157,7 @@ Select the terminal, then press Enter to begin clipboard insertion.
 [Enter pressed]
 
   Copying Email...
-    ✓ Copied: eleanor.nielsen@gmail+test.com
+    ✓ Copied: eleanor.nielsen@gmailc4a1.com
   Press Enter to copy the next field...[Enter]
   Copying Password...
     ✓ Copied: hunter2
@@ -177,15 +169,14 @@ Select the terminal, then press Enter to begin clipboard insertion.
     ✓ Copied: Nielsen
 
 All fields copied to clipboard!
-Generate another user? (y/n):
+Generate another user? (Y/n):
 ```
 
 ### Code Organization (inside `main.rs`)
 
-1. **CLI Arguments** -- `clap`-derived `Args` struct
-2. **API Response Models** -- `serde::Deserialize` structs for `randomuser.me` JSON
-3. **Clipboard Field Enum** -- `ClipboardField` with `from_str` and `label` methods
-4. **Configuration** -- `Config` struct loaded from environment variables
-5. **Utility Functions** -- `modify_email()`, `adjust_password()`
-6. **Core Functions** -- `fetch_user()`, `display_profile()`
-7. **Main Loop** -- interactive fetch-display-copy-regenerate cycle
+1. **API Response Models** -- `serde::Deserialize` structs for `randomuser.me` JSON
+2. **Clipboard Field Enum** -- `ClipboardField` with `from_str` and `label` methods
+3. **Configuration** -- `Config` struct loaded from environment variables
+4. **Utility Functions** -- `modify_email()`, `adjust_password()`
+5. **Core Functions** -- `fetch_user()`, `display_profile()`
+6. **Main Loop** -- interactive fetch-display-copy-regenerate cycle

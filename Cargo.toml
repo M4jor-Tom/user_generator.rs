@@ -13,4 +13,3 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 arboard = { version = "3", features = ["wayland-data-control"] }
 rand = "0.8"
-clap = { version = "4", features = ["derive"] }

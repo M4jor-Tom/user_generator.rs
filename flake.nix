@@ -22,7 +22,6 @@
       # Helper to create a profile wrapper that sets env vars
       buildProfile = {
         name ? "user_generator",
-        domainAppend ? "",
         fields ? "email,password,first,last",
         passwordMinLength ? "8",
         passwordRequireUpper ? false,
@@ -41,7 +40,7 @@
             export PASSWORD_REQUIRE_UPPER="${if passwordRequireUpper then "true" else "false"}"
             export PASSWORD_REQUIRE_SPECIAL="${if passwordRequireSpecial then "true" else "false"}"
             export PASSWORD_REQUIRE_DIGIT="${if passwordRequireDigit then "true" else "false"}"
-            exec user_generator ${if domainAppend != "" then "-d ${domainAppend}" else ""} "$@"
+            exec user_generator "$@"
           '';
         };
 
@@ -55,7 +54,6 @@
         # Hugging Face profile: stricter password requirements
         huggingface = buildProfile {
           name = "user_generator";
-          domainAppend = "HF";
           fields = "email,password,first,last";
           passwordMinLength = 12;
           passwordRequireUpper = true;
