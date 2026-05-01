@@ -16,7 +16,7 @@
         pname = "user_generator";
         version = "0.1.0";
         src = lib.cleanSource ./.;
-        cargoHash = lib.fakeHash;
+        cargoHash = "sha256-Ld4ENtX9L83vSQRMW3eUwA+3Rz+qBtnC7EHUBZE+HWU=";
       };
 
       # Helper to create a profile wrapper that sets env vars
@@ -59,12 +59,6 @@
           passwordRequireUpper = true;
           passwordRequireSpecial = true;
           passwordRequireDigit = true;
-        };
-
-        # Minimal profile: just email and first name
-        minimal = buildProfile {
-          name = "user_generator";
-          fields = "email,first";
         };
       };
 
