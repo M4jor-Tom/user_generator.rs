@@ -209,14 +209,45 @@ fn fetch_user() -> User {
 // --- Display Profile ---
 
 fn display_profile(user: &User, email: &str, password: &str) {
-    println!("\n╔══════════════════════════════════════╗");
-    println!("║         Generated User Profile       ║");
-    println!("╠══════════════════════════════════════╣");
-    println!("║  First Name : {:<22}║", user.name.first);
-    println!("║  Last Name  : {:<22}║", user.name.last);
-    println!("║  Email      : {:<22}║", email);
-    println!("║  Password   : {:<22}║", password);
-    println!("╚══════════════════════════════════════╝\n");
+    let first_name = user.name.first.clone();
+    let last_name = user.name.last.clone();
+    let fields = [
+        ("First Name", first_name),
+        ("Last Name", last_name),
+        ("Email", email.to_string()),
+        ("Password", password.to_string()),
+    ];
+
+    let max_value_len = fields.iter().map(|(_, v)| v.len()).max().unwrap_or(0);
+    let label_width = fields.iter().map(|(l, _)| l.len()).max().unwrap_or(0);
+    let inner_width = label_width + 3 + max_value_len;
+    let border_width = inner_width + 4;
+
+    let top_bottom = format!("╔{}╗", "═".repeat(border_width));
+    let separator = format!("╠{}╣", "═".repeat(border_width));
+    let title = "Generated User Profile";
+    let title_padding = (border_width - title.len()) / 2;
+    let title_line = format!(
+        "║{}{}{}║",
+        " ".repeat(title_padding),
+        title,
+        " ".repeat(border_width - title_padding - title.len())
+    );
+
+    println!("\n{}", top_bottom);
+    println!("{}", title_line);
+    println!("{}", separator);
+    for (label, value) in &fields {
+        println!(
+            "║  {:<label_width$} : {:<inner_value$}  ║",
+            label,
+            value,
+            label_width = label_width,
+            inner_value = inner_width - label_width - 3
+        );
+    }
+    let bottom = top_bottom.replace('╔', "╚").replace('╗', "╝");
+    println!("{}\n", bottom);
 }
 
 // --- Main ---
@@ -269,7 +300,7 @@ fn main() {
             .read_line(&mut input)
             .expect("Failed to read input");
 
-        for field in &config.fields {
+        for (i, field) in config.fields.iter().enumerate() {
             let value = match field {
                 ClipboardField::Email => email.clone(),
                 ClipboardField::Password => password.clone(),
@@ -284,7 +315,7 @@ fn main() {
                 .expect("Failed to set clipboard text");
             println!("    ✓ Copied: {}", value);
 
-            if field.label() != config.fields.last().unwrap().label() {
+            if i < config.fields.len() - 1 {
                 print!("  Press Enter to copy the next field...");
                 io::stdin()
                     .read_line(&mut String::new())
