@@ -48,41 +48,21 @@ Renders a bordered, auto-sizing ASCII table with all four fields aligned to the 
 
 After completing a clipboard copy cycle, you are prompted to generate another user. Type `y` to continue; any other input exits.
 
-## Installation
+## Requirements
 
-### Prerequisites
-
-- Rust toolchain (1.70+)
-- A clipboard-compatible environment (X11, Wayland, macOS, or Windows)
-
-### Build
-
-```bash
-cargo build --release
-```
-
-The binary is at `target/release/user_generator`.
-
-### Nix
-
-```bash
-nix develop    # enter dev shell with Rust toolchain
-nix build      # build the package
-```
+- nix
 
 ## Usage
 
 ```bash
-user_generator
+nix run \#profile_name # Example: hugging_face
 ```
-
-The tool has no CLI arguments. All configuration is done via environment variables.
 
 ### Examples
 
 ```bash
 # Basic usage with defaults
-./target/release/user_generator
+nix run
 
 # Only copy email and password (no name fields)
 FIELDS=email,password ./target/release/user_generator
@@ -144,14 +124,14 @@ Password restrictions: min_length=8
 
 Fetching user from randomuser.me...
 
-╔══════════════════════════════════════════╗
-║          Generated User Profile          ║
-╠══════════════════════════════════════════╣
-║  First Name : Eleanor                    ║
-║  Last Name  : Nielsen                    ║
+╔═════════════════════════════════════════════╗
+║          Generated User Profile             ║
+╠═════════════════════════════════════════════╣
+║  First Name : Eleanor                       ║
+║  Last Name  : Nielsen                       ║
 ║  Email      : eleanor.nielsen@gmailc4a1.com ║
-║  Password   : hunter2                    ║
-╚══════════════════════════════════════════╝
+║  Password   : hunter2                       ║
+╚═════════════════════════════════════════════╝
 
 Select the terminal, then press Enter to begin clipboard insertion.
 [Enter pressed]
