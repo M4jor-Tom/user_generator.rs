@@ -16,7 +16,7 @@
         pname = "user_generator";
         version = "0.1.0";
         src = lib.cleanSource ./.;
-        cargoHash = "sha256-Ld4ENtX9L83vSQRMW3eUwA+3Rz+qBtnC7EHUBZE+HWU=";
+        cargoHash = "sha256-UqU4cPoX0hKdwV3VTF1N48dFopPDLGVbwjOgIM1hOUc=";
       };
 
       # Helper to create a profile wrapper that sets env vars

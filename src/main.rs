@@ -1,7 +1,17 @@
 use arboard::Clipboard;
+use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use crossterm::terminal::{self, EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::ExecutableCommand;
 use rand::thread_rng;
 use rand::Rng;
-use std::io;
+use ratatui::backend::CrosstermBackend;
+use ratatui::layout::{Alignment, Constraint, Layout};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
+use ratatui::Terminal;
+use std::collections::HashSet;
+use std::io::{self, Stdout};
 
 // --- API Response Structures ---
 
@@ -199,134 +209,272 @@ fn fetch_user() -> User {
         .expect("No user in response")
 }
 
-// --- Display Profile ---
+// --- App State ---
 
-fn display_profile(user: &User, email: &str, password: &str) {
-    let first_name = user.name.first.clone();
-    let last_name = user.name.last.clone();
-    let fields = [
-        ("First Name", first_name),
-        ("Last Name", last_name),
-        ("Email", email.to_string()),
-        ("Password", password.to_string()),
-    ];
+struct AppState {
+    user: User,
+    email: String,
+    password: String,
+    selected_field: usize,
+    copied_fields: HashSet<usize>,
+    status_message: String,
+    loading: bool,
+}
 
-    let max_value_len = fields.iter().map(|(_, v)| v.len()).max().unwrap_or(0);
-    let label_width = fields.iter().map(|(l, _)| l.len()).max().unwrap_or(0);
-    let inner_width = label_width + 3 + max_value_len;
-    let border_width = inner_width + 4;
-
-    let top_bottom = format!("╔{}╗", "═".repeat(border_width));
-    let separator = format!("╠{}╣", "═".repeat(border_width));
-    let title = "Generated User Profile";
-    let title_padding = (border_width - title.len()) / 2;
-    let title_line = format!(
-        "║{}{}{}║",
-        " ".repeat(title_padding),
-        title,
-        " ".repeat(border_width - title_padding - title.len())
-    );
-
-    println!("\n{}", top_bottom);
-    println!("{}", title_line);
-    println!("{}", separator);
-    for (label, value) in &fields {
-        println!(
-            "║  {:<label_width$} : {:<inner_value$}  ║",
-            label,
-            value,
-            label_width = label_width,
-            inner_value = inner_width - label_width - 3
-        );
+impl AppState {
+    fn new(config: &Config) -> Self {
+        let mut rng = thread_rng();
+        let user = fetch_user();
+        let email = modify_email(&user.email, &mut rng);
+        let password = adjust_password(&user.login.password, config);
+        Self {
+            user,
+            email,
+            password,
+            selected_field: 0,
+            copied_fields: HashSet::new(),
+            status_message: String::new(),
+            loading: false,
+        }
     }
-    let bottom = top_bottom.replace('╔', "╚").replace('╗', "╝");
-    println!("{}\n", bottom);
+
+    fn refresh(&mut self, config: &Config) {
+        self.loading = true;
+        let mut rng = thread_rng();
+        self.user = fetch_user();
+        self.email = modify_email(&self.user.email, &mut rng);
+        self.password = adjust_password(&self.user.login.password, config);
+        self.selected_field = 0;
+        self.copied_fields.clear();
+        self.loading = false;
+        self.status_message = "New user generated!".into();
+    }
+
+    fn field_value(&self, field: &ClipboardField) -> String {
+        match field {
+            ClipboardField::Email => self.email.clone(),
+            ClipboardField::Password => self.password.clone(),
+            ClipboardField::First => self.user.name.first.clone(),
+            ClipboardField::Last => self.user.name.last.clone(),
+            ClipboardField::FullName => format!("{} {}", self.user.name.first, self.user.name.last),
+            ClipboardField::Username => self.user.login.username.clone(),
+        }
+    }
+}
+
+// --- Rendering ---
+
+fn render(
+    terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+    state: &AppState,
+    config: &Config,
+) -> io::Result<()> {
+    terminal.draw(|frame| {
+        let chunks = Layout::default()
+            .constraints([
+                Constraint::Length(1),
+                Constraint::Min(0),
+                Constraint::Length(3),
+            ])
+            .split(frame.area());
+
+        let header = Paragraph::new(Span::styled(
+            "User Profile Generator",
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+        ))
+        .alignment(Alignment::Center);
+        frame.render_widget(header, chunks[0]);
+
+        let mut items: Vec<ListItem> = Vec::new();
+        for (i, field) in config.fields.iter().enumerate() {
+            let is_selected = i == state.selected_field;
+            let copied = state.copied_fields.contains(&i);
+
+            let prefix = if is_selected { "> " } else { "  " };
+            let suffix = if copied { " ✓" } else { "" };
+
+            let value = state.field_value(field);
+
+            let line_style = if is_selected {
+                Style::default()
+                    .fg(Color::White)
+                    .bg(Color::DarkGray)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+
+            let label_style = if is_selected {
+                Style::default()
+                    .fg(Color::Yellow)
+                    .bg(Color::DarkGray)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Green)
+            };
+
+            let copied_style = if is_selected {
+                Style::default()
+                    .fg(Color::Green)
+                    .bg(Color::DarkGray)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Green)
+            };
+
+            let line = Line::from(vec![
+                Span::styled(prefix, line_style),
+                Span::styled(format!("{:<12}", field.label()), label_style),
+                Span::styled(": ", line_style),
+                Span::styled(value.clone(), line_style),
+                Span::styled(suffix, copied_style),
+            ]);
+
+            items.push(ListItem::new(line));
+        }
+
+        let list = List::new(items)
+            .block(
+                Block::default()
+                    .title("Generated User Profile")
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::Cyan)),
+            )
+            .highlight_style(
+                Style::default()
+                    .fg(Color::White)
+                    .bg(Color::DarkGray)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .highlight_symbol(" ");
+
+        let mut list_state = ListState::default();
+        list_state.select(Some(state.selected_field));
+        frame.render_stateful_widget(list, chunks[1], &mut list_state);
+
+        let status_color = if state.status_message.contains("Error") {
+            Color::Red
+        } else {
+            Color::White
+        };
+        let status = Paragraph::new(Line::from(vec![
+            Span::styled(
+                "↓/j ↑/k: navigate  ",
+                Style::default().fg(Color::DarkGray),
+            ),
+            Span::styled(
+                "Enter/Space: copy  ",
+                Style::default().fg(Color::DarkGray),
+            ),
+            Span::styled(
+                "r: refresh  ",
+                Style::default().fg(Color::DarkGray),
+            ),
+            Span::styled(
+                "q: quit",
+                Style::default().fg(Color::DarkGray),
+            ),
+        ]))
+        .alignment(Alignment::Center);
+        frame.render_widget(status, chunks[2]);
+
+        if !state.status_message.is_empty() {
+            let msg = Paragraph::new(Span::styled(
+                &state.status_message,
+                Style::default().fg(status_color),
+            ))
+            .alignment(Alignment::Center);
+            let msg_area = chunks[1];
+            use ratatui::layout::Rect;
+            let msg_rect = Rect {
+                x: msg_area.x + 2,
+                y: msg_area.y + msg_area.height.saturating_sub(1),
+                width: msg_area.width.saturating_sub(4),
+                height: 1,
+            };
+            frame.render_widget(msg, msg_rect);
+        }
+    })?;
+    Ok(())
+}
+
+// --- Terminal Setup / Teardown ---
+
+fn setup_terminal() -> io::Result<Terminal<CrosstermBackend<Stdout>>> {
+    let mut stdout = io::stdout();
+    stdout.execute(EnterAlternateScreen)?;
+    terminal::enable_raw_mode()?;
+    let backend = CrosstermBackend::new(stdout);
+    Terminal::new(backend)
+}
+
+fn restore_terminal() -> io::Result<()> {
+    let mut stdout = io::stdout();
+    stdout.execute(LeaveAlternateScreen)?;
+    terminal::disable_raw_mode()?;
+    Ok(())
 }
 
 // --- Main ---
 
-fn main() {
+fn main() -> io::Result<()> {
     let config = Config::from_env();
-    let mut rng = thread_rng();
+    let mut state = AppState::new(&config);
+    let mut terminal = setup_terminal()?;
 
-    println!("User Profile Generator");
-    println!(
-        "Fields: {:?}",
-        config.fields.iter().map(|f| f.label()).collect::<Vec<_>>()
-    );
-    if config.password_require_upper
-        || config.password_require_special
-        || config.password_require_digit
-        || config.password_min_length > 0
-    {
-        print!(
-            "Password restrictions: min_length={}",
-            config.password_min_length
-        );
-        if config.password_require_upper {
-            print!(", upper");
-        }
-        if config.password_require_special {
-            print!(", special");
-        }
-        if config.password_require_digit {
-            print!(", digit");
-        }
-        println!();
+    let result = run(&mut terminal, &mut state, &config);
+
+    restore_terminal()?;
+
+    match result {
+        Ok(_) => println!("Exiting..."),
+        Err(e) => eprintln!("Error: {}", e),
     }
 
+    Ok(())
+}
+
+fn run(
+    terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+    state: &mut AppState,
+    config: &Config,
+) -> io::Result<()> {
     let mut clipboard = Clipboard::new().expect("Failed to open clipboard");
 
     loop {
-        println!("\nFetching user from randomuser.me...");
-        let user = fetch_user();
+        render(terminal, state, config)?;
 
-        let email = modify_email(&user.email, &mut rng);
-        let password = adjust_password(&user.login.password, &config);
-
-        display_profile(&user, &email, &password);
-
-        println!("Select the terminal, then press Enter to begin clipboard insertion.");
-        let mut input = String::new();
-        io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to read input");
-
-        for (i, field) in config.fields.iter().enumerate() {
-            let value = match field {
-                ClipboardField::Email => email.clone(),
-                ClipboardField::Password => password.clone(),
-                ClipboardField::First => user.name.first.clone(),
-                ClipboardField::Last => user.name.last.clone(),
-                ClipboardField::FullName => format!("{} {}", user.name.first, user.name.last),
-                ClipboardField::Username => user.login.username.clone(),
-            };
-
-            println!("  Copying {}...", field.label());
-            clipboard
-                .set()
-                .text(value.clone())
-                .expect("Failed to set clipboard text");
-            println!("    ✓ Copied: {}", value);
-
-            if i < config.fields.len() - 1 {
-                print!("  Press Enter to copy the next field...");
-                io::stdin()
-                    .read_line(&mut String::new())
-                    .expect("Failed to read input");
+        if let Event::Key(key) = event::read()? {
+            if key.kind != KeyEventKind::Press {
+                continue;
             }
-        }
 
-        println!("\nAll fields copied to clipboard!");
-        println!("Generate another user? (Y/n): ");
-        let mut response = String::new();
-        io::stdin()
-            .read_line(&mut response)
-            .expect("Failed to read input");
-
-        if response.trim().to_lowercase() == "n" {
-            println!("Exiting...");
-            break;
+            match key.code {
+                KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
+                KeyCode::Down | KeyCode::Char('j') => {
+                    state.selected_field = (state.selected_field + 1).min(config.fields.len() - 1);
+                }
+                KeyCode::Up | KeyCode::Char('k') => {
+                    state.selected_field = state.selected_field.saturating_sub(1);
+                }
+                KeyCode::Enter | KeyCode::Char(' ') => {
+                    let field = &config.fields[state.selected_field];
+                    let value = state.field_value(field);
+                    clipboard
+                        .set()
+                        .text(&value)
+                        .expect("Failed to set clipboard text");
+                    state
+                        .copied_fields
+                        .insert(state.selected_field);
+                    state.status_message = format!("Copied {} to clipboard", field.label());
+                    state.selected_field = (state.selected_field + 1).min(config.fields.len() - 1);
+                }
+                KeyCode::Char('r') => {
+                    state.refresh(config);
+                }
+                _ => {}
+            }
         }
     }
 }
