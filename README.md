@@ -115,42 +115,29 @@ Boolean env vars are `false` only if the value equals `"0"` or `"false"` (case-i
 
 ## Session Flow
 
+The app uses a `ratatui` TUI with an interactive list. Fields are displayed in a bordered panel with navigation via arrow keys or `j`/`k`.
+
 ```
-$ ./target/release/user_generator
-
-User Profile Generator
-Fields: ["Email", "Password", "First Name", "Last Name"]
-Password restrictions: min_length=8
-
-Fetching user from randomuser.me...
-
-╔═════════════════════════════════════════════╗
-║          Generated User Profile             ║
-╠═════════════════════════════════════════════╣
-║  First Name : Eleanor                       ║
-║  Last Name  : Nielsen                       ║
-║  Email      : eleanor.nielsen@gmailc4a1.com ║
-║  Password   : hunter2                       ║
-╚═════════════════════════════════════════════╝
-
-Select the terminal, then press Enter to begin clipboard insertion.
-[Enter pressed]
-
-  Copying Email...
-    ✓ Copied: eleanor.nielsen@gmailc4a1.com
-  Press Enter to copy the next field...[Enter]
-  Copying Password...
-    ✓ Copied: hunter2
-  Press Enter to copy the next field...[Enter]
-  Copying First Name...
-    ✓ Copied: Eleanor
-  Press Enter to copy the next field...[Enter]
-  Copying Last Name...
-    ✓ Copied: Nielsen
-
-All fields copied to clipboard!
-Generate another user? (Y/n):
+┌───────────────────────────────────────────────────────────┐
+│        User Profile Generator                             │
+├───────────────────────────────────────────────────────────┤
+│> Email        : user@gmailf41a.com                        │
+│  Password     : hunter2                                   │
+│  First Name   : Eleanor                                   │
+│  Last Name    : Nielsen                                   │
+│                                                           │
+│                                                           │
+│         New user generated!                               │
+├───────────────────────────────────────────────────────────┤
+│ ↓/j ↑/k: navigate  Enter/Space: copy  r: refresh  q: quit │
+└───────────────────────────────────────────────────────────┘
 ```
+
+1. **Startup** -- A random user is fetched and displayed in a list
+2. **Navigate** -- Use `↓`/`j` and `↑`/`k` to move the selection cursor (`>`)
+3. **Copy** -- Press `Enter` or `Space` to copy the highlighted field to the clipboard (a `✓` appears next to copied fields)
+4. **Refresh** -- Press `r` to fetch a new user at any time
+5. **Quit** -- Press `q` or `Esc` to exit
 
 ### Code Organization (inside `main.rs`)
 
@@ -158,5 +145,7 @@ Generate another user? (Y/n):
 2. **Clipboard Field Enum** -- `ClipboardField` with `from_str` and `label` methods
 3. **Configuration** -- `Config` struct loaded from environment variables
 4. **Utility Functions** -- `modify_email()`, `adjust_password()`
-5. **Core Functions** -- `fetch_user()`, `display_profile()`
-6. **Main Loop** -- interactive fetch-display-copy-regenerate cycle
+5. **App State** -- `AppState` struct holding user data, selection, and copied fields
+6. **Rendering** -- `render()` function using `ratatui` widgets (List, Paragraph, Block)
+7. **Terminal Setup** -- `setup_terminal()` / `restore_terminal()` with crossterm
+8. **Main Loop** -- `run()` handles keyboard events (navigate, copy, refresh, quit)
