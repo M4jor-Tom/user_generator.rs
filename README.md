@@ -50,12 +50,17 @@ After completing a clipboard copy cycle, you are prompted to generate another us
 
 ## Requirements
 
-- nix
+- Nix
+- Wayland compositor with clipboard support (or X11)
 
 ## Usage
 
 ```bash
-nix run \#profile_name # Example: hugging_face
+# Default profile
+nix run
+
+# Hugging Face profile (stricter passwords, different fields)
+nix run .#huggingface
 ```
 
 ### Examples
@@ -139,13 +144,17 @@ The app uses a `ratatui` TUI with an interactive list. Fields are displayed in a
 4. **Refresh** -- Press `r` to fetch a new user at any time
 5. **Quit** -- Press `q` or `Esc` to exit
 
-### Code Organization (inside `main.rs`)
+### Code Organization
 
-1. **API Response Models** -- `serde::Deserialize` structs for `randomuser.me` JSON
-2. **Clipboard Field Enum** -- `ClipboardField` with `from_str` and `label` methods
-3. **Configuration** -- `Config` struct loaded from environment variables
-4. **Utility Functions** -- `modify_email()`, `adjust_password()`
-5. **App State** -- `AppState` struct holding user data, selection, and copied fields
-6. **Rendering** -- `render()` function using `ratatui` widgets (List, Paragraph, Block)
-7. **Terminal Setup** -- `setup_terminal()` / `restore_terminal()` with crossterm
-8. **Main Loop** -- `run()` handles keyboard events (navigate, copy, refresh, quit)
+| Module | Purpose |
+|--------|---------|
+| `models` | `serde::Deserialize` structs for `randomuser.me` JSON responses |
+| `clipboard_field` | `ClipboardField` enum with `from_str` and `label` methods |
+| `config` | `Config` struct loaded from environment variables |
+| `email` | Email hash suffix generation (`modify_email`) |
+| `password` | Password complexity adjustment (`adjust_password`) |
+| `app_state` | `AppState` struct holding user data, selection, and copied fields |
+| `ui` | `render()` function using `ratatui` widgets (List, Paragraph, Block) |
+| `terminal` | `setup_terminal()` / `restore_terminal()` with crossterm |
+| `api` | HTTP request logic for fetching user profiles |
+| `main` | Entry point, `run()` event loop (keyboard navigation, copy, refresh, quit) |
