@@ -2,7 +2,7 @@
 
 A Rust CLI tool that fetches random user profiles from the [randomuser.me API](https://randomuser.me/) and copies individual fields to the clipboard one-by-one, enabling quick copy-paste workflows for filling forms or creating test accounts.
 
-<video src="assets/demo.webm" controls></video>
+[demo.webm](https://github.com/user-attachments/assets/9a844c9a-2de7-4192-95a4-15b8709bdc79)
 
 ## Features
 
