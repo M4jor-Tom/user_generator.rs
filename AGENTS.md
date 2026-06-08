@@ -18,12 +18,9 @@ CI (`.github/workflows/rust.yml`) runs `cargo build --verbose` then `cargo test 
 
 ## Nix gotcha
 
-The flake uses `cargo vendor` (via a fixed-output derivation) instead of nix's built-in
-Python crate fetcher, because crates.io blocks the Python fetcher's User-Agent on some
-networks. When `Cargo.toml`/`Cargo.lock` changes, update the `outputHash` of
-`cargoVendorDir` in `flake.nix`. To get the new hash:
+The flake uses `crane` to build. When `Cargo.toml`/`Cargo.lock` changes, crane automatically
+re-vendors dependencies — no manual hash updates needed.
 
-    nix build --no-write-lock-file 2>&1 | grep -oP 'got:\s*\K.*' | head -1
 
 ## Runtime requirements
 

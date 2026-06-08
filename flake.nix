@@ -3,64 +3,24 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    crane.url = "github:ipetkov/crane";
   };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, crane }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
-      lib = pkgs.lib;
+      craneLib = crane.mkLib pkgs;
 
-      # Vendor dependencies using `cargo vendor` instead of nix's built-in
-      # Python fetcher, which gets blocked by crates.io for lacking a proper
-      # User-Agent. This is a fixed-output derivation (has network access).
-      cargoVendorDir = pkgs.stdenv.mkDerivation {
-        name = "user_generator-vendor";
-        src = lib.cleanSource ./.;
-        nativeBuildInputs = with pkgs; [ cargo rustc cacert ];
-        outputHashMode = "recursive";
-        outputHashAlgo = "sha256";
-        outputHash = "sha256-TKD5LANLJM2HTavJl/DYbXjcClQMO3BMQpp2ittOjHo=";
-        phases = [ "unpackPhase" "buildPhase" ];
-        buildPhase = ''
-          sourceRoot="$(ls -d */)"
-          cd "$sourceRoot"
-          export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
-          HOME=$TMPDIR cargo vendor --locked "$out"
-        '';
-        installPhase = "true";
+      commonArgs = {
+        src = craneLib.cleanCargoSource ./.;
       };
 
-      # Base Rust package
-      # Uses cargo build --release --frozen with pre-vendored deps instead of
-      # buildRustPackage, because crates.io blocks nix's Python crate fetcher.
-      rustPackage = pkgs.stdenv.mkDerivation {
-        pname = "user_generator";
-        version = "0.1.0";
-        src = lib.cleanSource ./.;
-        nativeBuildInputs = with pkgs; [ cargo rustc ];
+      cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
-        buildPhase = ''
-          vendorDir=${cargoVendorDir}
-          cp -Lr --reflink=auto "$vendorDir" vendor
-          chmod -R +w vendor
-
-          mkdir -p .cargo
-          cat > .cargo/config.toml <<EOF
-          [source.crates-io]
-          replace-with = "vendored-sources"
-
-          [source.vendored-sources]
-          directory = "$(pwd)/vendor"
-          EOF
-
-          cargo build --release --frozen
-        '';
-
-        installPhase = ''
-          install -Dm755 target/release/user_generator -t $out/bin
-        '';
-      };
+      rustPackage = craneLib.buildPackage (commonArgs // {
+        inherit cargoArtifacts;
+      });
 
       # Helper to create a profile wrapper that sets env vars
       buildProfile = {
@@ -105,14 +65,8 @@
         };
       };
 
-      devShells.${system}.default = pkgs.mkShell {
-        packages = with pkgs; [
-          rustc
-          cargo
-          clippy
-          rustfmt
-          rust-analyzer
-        ];
+      devShells.${system}.default = craneLib.devShell {
+        packages = with pkgs; [ rust-analyzer ];
       };
     };
 }
