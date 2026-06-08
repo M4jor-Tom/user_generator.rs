@@ -18,7 +18,12 @@ CI (`.github/workflows/rust.yml`) runs `cargo build --verbose` then `cargo test 
 
 ## Nix gotcha
 
-When `Cargo.toml` or dependencies change, update `cargoHash` in `flake.nix` (currently `sha256-UqU4cPoX0hKdwV3VTF1N48dFopPDLGVbwjOgIM1hOUc=`).
+The flake uses `cargo vendor` (via a fixed-output derivation) instead of nix's built-in
+Python crate fetcher, because crates.io blocks the Python fetcher's User-Agent on some
+networks. When `Cargo.toml`/`Cargo.lock` changes, update the `outputHash` of
+`cargoVendorDir` in `flake.nix`. To get the new hash:
+
+    nix build --no-write-lock-file 2>&1 | grep -oP 'got:\s*\K.*' | head -1
 
 ## Runtime requirements
 
