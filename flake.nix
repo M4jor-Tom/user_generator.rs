@@ -56,7 +56,8 @@
 
         # Hugging Face profile: stricter password requirements
         huggingface = buildProfile {
-          name = "user_generator";
+          # distinct binary name so it can be installed alongside `default`
+          name = "huggingface";
           fields = "email,password,username,fullname";
           passwordMinLength = 12;
           passwordRequireUpper = true;
@@ -64,6 +65,15 @@
           passwordRequireDigit = true;
         };
       };
+
+      # every profile is runnable: nix run .#huggingface
+      apps.${system} = builtins.mapAttrs
+        (n: p: {
+          type = "app";
+          program = pkgs.lib.getExe p;
+          meta.description = "user_generator, ${n} profile";
+        })
+        self.packages.${system};
 
       devShells.${system}.default = craneLib.devShell {
         packages = with pkgs; [ rust-analyzer ];
